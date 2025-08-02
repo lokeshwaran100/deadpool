@@ -20,7 +20,7 @@ contract Deadpool is Ownable, ReentrancyGuard {
     // Constants
     uint256 public constant MAX_PLATFORM_FEE_BPS = 1000; // 10% max platform fee
     uint256 public constant BPS_DENOMINATOR = 10000;
-    uint256 public constant MIN_POOL_DURATION = 1 hours;
+    uint256 public constant MIN_POOL_DURATION = 1 minutes;
     uint256 public constant MAX_POOL_DURATION = 30 days;
 
     // State Variables
@@ -183,7 +183,9 @@ contract Deadpool is Ownable, ReentrancyGuard {
         IERC20 token = IERC20(pool.tokenAddress);
 
         // Transfer tokens from user to contract
-        token.safeTransferFrom(msg.sender, address(this), amount);
+        // token.safeTransferFrom(msg.sender, address(this), amount);
+        token.transferFrom(msg.sender, address(this), amount);
+
 
         // Update pool state
         if (pool.deposits[msg.sender] == 0) {
