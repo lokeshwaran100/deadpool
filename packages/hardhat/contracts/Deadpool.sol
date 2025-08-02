@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 // Useful for debugging. Remove when deploying to a live network.
 import "hardhat/console.sol";
@@ -22,10 +23,13 @@ contract Deadpool is Ownable, ReentrancyGuard {
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant MIN_POOL_DURATION = 1 minutes;
     uint256 public constant MAX_POOL_DURATION = 30 days;
+    
+    address private constant WETH = 0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701;
 
     // State Variables
     address public treasury;
     address public dexRouter;
+    IUniswapV2Router02 public uniswapRouter;
     uint256 public nextPoolId = 1;
     uint16 public platformFeeBps = 1000; // Default 10% platform fee
 
@@ -132,6 +136,7 @@ contract Deadpool is Ownable, ReentrancyGuard {
         
         treasury = _treasury;
         dexRouter = _dexRouter;
+        uniswapRouter = IUniswapV2Router02(_dexRouter);
     }
 
     /**
@@ -214,27 +219,46 @@ contract Deadpool is Ownable, ReentrancyGuard {
         require(pool.totalDeposited > 0, "No deposits in pool");
 
         // Swap dead tokens for Monad (MON)
-        uint256 monadReceived = _swapTokensForMonad(pool.tokenAddress, pool.totalDeposited);
-        require(monadReceived > 0, "Swap failed or no Monad received");
+        // uint256 monadReceived = _swapTokensForMonad(pool.tokenAddress, pool.totalDeposited);
+        IERC20(pool.tokenAddress).approve(dexRouter, pool.totalDeposited);
+        address[] memory path = new address[](2);
+        path[0] = pool.tokenAddress;
+        path[1] = WETH;
 
-        // Calculate platform fee
-        uint256 platformFee = (monadReceived * platformFeeBps) / BPS_DENOMINATOR;
-        uint256 rewardPool = monadReceived - platformFee;
+        uint256 beforeAmount = IERC20(pool.tokenAddress).balanceOf(address(this));
 
-        // Transfer platform fee to treasury
-        if (platformFee > 0) {
-            payable(treasury).transfer(platformFee);
-        }
+        uniswapRouter.swapExactTokensForETH(
+            pool.totalDeposited,
+            0,
+            path,
+            msg.sender,
+            block.timestamp
+        );
 
-        // Select 3 winners randomly
-        address[3] memory winners = _selectWinners(poolId);
+        uint256 afterAmount = IERC20(pool.tokenAddress).balanceOf(address(this));
+
+        // uint256 monadReceived = afterAmount - beforeAmount;
+
+        // require(monadReceived > 0, "Swap failed or no Monad received");
+
+        // // Calculate platform fee
+        // uint256 platformFee = (monadReceived * platformFeeBps) / BPS_DENOMINATOR;
+        // uint256 rewardPool = monadReceived - platformFee;
+
+        // // Transfer platform fee to treasury
+        // if (platformFee > 0) {
+        //     payable(treasury).transfer(platformFee);
+        // }
+
+        // // Select 3 winners randomly
+        // address[3] memory winners = _selectWinners(poolId);
         
-        // Update pool state
-        pool.totalMonadReceived = rewardPool;
-        pool.winners = winners;
-        pool.finalized = true;
+        // // Update pool state
+        // pool.totalMonadReceived = rewardPool;
+        // pool.winners = winners;
+        // pool.finalized = true;
 
-        emit PoolFinalized(poolId, monadReceived, winners, platformFee);
+        // emit PoolFinalized(poolId, monadReceived, winners, platformFee);
     }
 
     /**
@@ -335,6 +359,7 @@ contract Deadpool is Ownable, ReentrancyGuard {
         require(newRouter != address(0), "Invalid router address");
         address oldRouter = dexRouter;
         dexRouter = newRouter;
+        uniswapRouter = IUniswapV2Router02(newRouter);
 
         emit DexRouterUpdated(oldRouter, newRouter);
     }
