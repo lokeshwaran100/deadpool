@@ -1,11 +1,14 @@
 "use client";
+/* eslint-disable */
 
-import { useEffect, useState } from "react";
-import { useAccount } from "wagmi";
+import { useCallback, useEffect, useState } from "react";
+import { useAccount, useWriteContract } from "wagmi";
 import { ClockIcon, CurrencyDollarIcon, UsersIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
+import { PoolDataFetcher } from "~~/components/PoolDataFetcher";
+import deployedContracts from "~~/contracts/deployedContracts";
 
 // Define pool data type
 type PoolData = {
@@ -30,6 +33,7 @@ const PoolsPage = () => {
   const [depositAmount, setDepositAmount] = useState("");
   const [pools, setPools] = useState<PoolData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [poolIds, setPoolIds] = useState<number[]>([]);
 
   // Read the next pool ID to know how many pools exist
   const { data: nextPoolId } = useScaffoldReadContract({
@@ -37,23 +41,52 @@ const PoolsPage = () => {
     functionName: "nextPoolId",
   });
 
-  // Contract write functions
-  const { writeContractAsync: depositToPoolContract } = useScaffoldWriteContract("Deadpool");
-  const { writeContractAsync: finalizePoolContract } = useScaffoldWriteContract("Deadpool");
-
-  // For now, let's use some sample data since we need pools to exist first
-  // In a real app, you'd loop through all pool IDs and fetch their data
+  // Generate array of pool IDs when nextPoolId changes
   useEffect(() => {
-    if (nextPoolId) {
-      // For demonstration, create some sample pools if none exist
-      const samplePools: PoolData[] = [];
-
-      // If we have pool data, we'd fetch it here
-      // For now, just show empty state or sample data
-      setPools(samplePools);
+    if (nextPoolId && Number(nextPoolId) > 1) {
+      const ids = [];
+      for (let i = 1; i < Number(nextPoolId); i++) {
+        ids.push(i);
+      }
+      setPoolIds(ids);
+      setIsLoading(true);
+    } else {
+      setPoolIds([]);
+      setPools([]);
       setIsLoading(false);
     }
   }, [nextPoolId]);
+
+  // Handle pool data received from PoolDataFetcher components
+  const handlePoolData = useCallback((poolData: PoolData) => {
+    setPools(prevPools => {
+      const existingIndex = prevPools.findIndex(p => p.id === poolData.id);
+      if (existingIndex >= 0) {
+        // Update existing pool
+        const newPools = [...prevPools];
+        newPools[existingIndex] = poolData;
+        return newPools;
+      } else {
+        // Add new pool
+        const newPools = [...prevPools, poolData].sort((a, b) => a.id - b.id);
+        return newPools;
+      }
+    });
+  }, []);
+
+  // Set loading to false when we have data for all pool IDs
+  useEffect(() => {
+    if (poolIds.length > 0 && pools.length === poolIds.length) {
+      setIsLoading(false);
+    }
+  }, [pools.length, poolIds.length]);
+
+  // Contract write functions
+  const { writeContractAsync: depositToPoolContract } = useScaffoldWriteContract("Deadpool");
+  const { writeContractAsync: finalizePoolContract } = useScaffoldWriteContract("Deadpool");
+  const { writeContractAsync: writeErc20Async } = useWriteContract();
+
+
 
   const handleDeposit = async (poolId: number) => {
     if (!connectedAddress) {
@@ -67,13 +100,36 @@ const PoolsPage = () => {
     }
 
     try {
-      // Note: This requires token approval first
+      const deadpoolAddress = (deployedContracts as any)[10143]?.Deadpool?.address as `0x${string}`;
+
+      // 1) Approve tokens
+      const erc20Abi = [
+        {
+          name: "approve",
+          type: "function",
+          stateMutability: "nonpayable",
+          inputs: [
+            { name: "spender", type: "address" },
+            { name: "amount", type: "uint256" },
+          ],
+          outputs: [{ name: "", type: "bool" }],
+        },
+      ] as const;
+
+      await writeErc20Async({
+        address: pools.find(p => p.id === poolId)!.tokenAddress as `0x${string}`,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [deadpoolAddress, BigInt(depositAmount)],
+      });
+
+      // 2) Deposit to pool
       await depositToPoolContract({
         functionName: "depositToPool",
         args: [BigInt(poolId), BigInt(depositAmount)],
-      });
+      } as any);
 
-      notification.success("🪦 Tokens deposited successfully!");
+      notification.success("🪦 Tokens approved and deposited successfully!");
       setSelectedPool(null);
       setDepositAmount("");
 
@@ -95,7 +151,7 @@ const PoolsPage = () => {
       await finalizePoolContract({
         functionName: "finalizePool",
         args: [BigInt(poolId)],
-      });
+      } as any);
 
       notification.success("🏆 Pool finalized! Winners have been selected!");
 
@@ -129,6 +185,15 @@ const PoolsPage = () => {
 
   return (
     <div className="flex items-center flex-col grow pt-10">
+      {/* Render PoolDataFetcher components for each pool ID */}
+      {poolIds.map(poolId => (
+        <PoolDataFetcher
+          key={poolId}
+          poolId={poolId}
+          onPoolData={handlePoolData}
+        />
+      ))}
+      
       <div className="px-5 w-full max-w-6xl">
         <div className="text-center mb-8">
           <span className="text-4xl mb-4 block deadpool-emoji">💰</span>
