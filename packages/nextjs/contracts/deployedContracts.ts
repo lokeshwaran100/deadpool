@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   10143: {
     Deadpool: {
-      address: "0x97403fd1c3291826Cc0acbe50F879594DbC79996",
+      address: "0x2F6ec88553DE644c9A40a2f5ccA9Bf51d01fd561",
       abi: [
         {
           inputs: [
@@ -868,7 +868,7 @@ const deployedContracts = {
         renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
         transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
       },
-      deployedOnBlock: 28934180,
+      deployedOnBlock: 28941555,
     },
   },
   31337: {
