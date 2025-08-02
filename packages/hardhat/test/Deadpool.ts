@@ -48,7 +48,7 @@ describe("Deadpool", function () {
       
       await expect(deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION, PLATFORM_FEE_BPS))
         .to.emit(deadpool, "DeadpoolCreated")
-        .withArgs(1, user1.address, tokenAddress, await time.latest() + POOL_DURATION + 1, PLATFORM_FEE_BPS);
+        .withArgs(1, user1.address, tokenAddress, await time.latest() + POOL_DURATION, PLATFORM_FEE_BPS);
 
       const pool = await deadpool.getPool(1);
       expect(pool.creator).to.equal(user1.address);
