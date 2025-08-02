@@ -18,6 +18,10 @@ describe("Deadpool", function () {
 
   before(async () => {
     [owner, treasury, user1, user2, user3, dexRouter] = await ethers.getSigners();
+<<<<<<< HEAD
+=======
+    
+>>>>>>> main
     const deadpoolFactory = await ethers.getContractFactory("Deadpool");
     deadpool = (await deadpoolFactory.deploy(treasury.address, dexRouter.address)) as Deadpool;
     await deadpool.waitForDeployment();
@@ -48,15 +52,27 @@ describe("Deadpool", function () {
   describe("Pool Creation", function () {
     it("Should create a new deadpool", async function () {
       const tokenAddress = user1.address; // Using user address as mock token
+<<<<<<< HEAD
       await expect(deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION))
         .to.emit(deadpool, "DeadpoolCreated")
         .withArgs(1, user1.address, tokenAddress, (await time.latest()) + POOL_DURATION);
+=======
+      
+      await expect(deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION))
+        .to.emit(deadpool, "DeadpoolCreated")
+        .withArgs(1, user1.address, tokenAddress, await time.latest() + POOL_DURATION);
+>>>>>>> main
 
       const pool = await deadpool.getPool(1);
       expect(pool.creator).to.equal(user1.address);
       expect(pool.tokenAddress).to.equal(tokenAddress);
+<<<<<<< HEAD
       void expect(pool.finalized).to.be.false;
       void expect(pool.cancelled).to.be.false;
+=======
+      expect(pool.finalized).to.be.false;
+      expect(pool.cancelled).to.be.false;
+>>>>>>> main
     });
 
     it("Should increment nextPoolId", async function () {
@@ -64,21 +80,38 @@ describe("Deadpool", function () {
     });
 
     it("Should revert with invalid token address", async function () {
+<<<<<<< HEAD
       await expect(deadpool.connect(user1).createDeadpool(ethers.ZeroAddress, POOL_DURATION)).to.be.revertedWith(
         "Invalid token address",
       );
+=======
+      await expect(
+        deadpool.connect(user1).createDeadpool(ethers.ZeroAddress, POOL_DURATION)
+      ).to.be.revertedWith("Invalid token address");
+>>>>>>> main
     });
 
     it("Should revert with invalid duration", async function () {
       const tokenAddress = user2.address;
+<<<<<<< HEAD
       // Too short duration
       await expect(
         deadpool.connect(user1).createDeadpool(tokenAddress, 30 * 60), // 30 minutes
+=======
+      
+      // Too short duration
+      await expect(
+        deadpool.connect(user1).createDeadpool(tokenAddress, 30 * 60) // 30 minutes
+>>>>>>> main
       ).to.be.revertedWith("Invalid duration");
 
       // Too long duration
       await expect(
+<<<<<<< HEAD
         deadpool.connect(user1).createDeadpool(tokenAddress, 31 * 24 * 60 * 60), // 31 days
+=======
+        deadpool.connect(user1).createDeadpool(tokenAddress, 31 * 24 * 60 * 60) // 31 days
+>>>>>>> main
       ).to.be.revertedWith("Invalid duration");
     });
   });
@@ -98,11 +131,21 @@ describe("Deadpool", function () {
         .withArgs(poolId, user1.address);
 
       const pool = await deadpool.getPool(poolId);
+<<<<<<< HEAD
       void expect(pool.cancelled).to.be.true;
     });
 
     it("Should not allow non-creator to cancel pool", async function () {
       await expect(deadpool.connect(user2).cancelPool(poolId)).to.be.revertedWith("Only creator can cancel");
+=======
+      expect(pool.cancelled).to.be.true;
+    });
+
+    it("Should not allow non-creator to cancel pool", async function () {
+      await expect(
+        deadpool.connect(user2).cancelPool(poolId)
+      ).to.be.revertedWith("Only creator can cancel");
+>>>>>>> main
     });
 
     it("Should allow owner to emergency withdraw", async function () {
@@ -111,6 +154,7 @@ describe("Deadpool", function () {
         .withArgs(poolId, owner.address, 0);
 
       const pool = await deadpool.getPool(poolId);
+<<<<<<< HEAD
       void expect(pool.cancelled).to.be.true;
     });
 
@@ -118,12 +162,25 @@ describe("Deadpool", function () {
       await expect(deadpool.connect(user1).emergencyWithdraw(poolId)).to.be.revertedWith(
         "Ownable: caller is not the owner",
       );
+=======
+      expect(pool.cancelled).to.be.true;
+    });
+
+    it("Should not allow non-owner to emergency withdraw", async function () {
+      await expect(
+        deadpool.connect(user1).emergencyWithdraw(poolId)
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+>>>>>>> main
     });
   });
 
   describe("Admin Functions", function () {
     it("Should allow owner to update treasury", async function () {
       const newTreasury = user3.address;
+<<<<<<< HEAD
+=======
+      
+>>>>>>> main
       await expect(deadpool.connect(owner).setTreasury(newTreasury))
         .to.emit(deadpool, "TreasuryUpdated")
         .withArgs(treasury.address, newTreasury);
@@ -132,13 +189,23 @@ describe("Deadpool", function () {
     });
 
     it("Should not allow non-owner to update treasury", async function () {
+<<<<<<< HEAD
       await expect(deadpool.connect(user1).setTreasury(user3.address)).to.be.revertedWith(
         "Ownable: caller is not the owner",
       );
+=======
+      await expect(
+        deadpool.connect(user1).setTreasury(user3.address)
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+>>>>>>> main
     });
 
     it("Should allow owner to update DEX router", async function () {
       const newRouter = user3.address;
+<<<<<<< HEAD
+=======
+      
+>>>>>>> main
       await expect(deadpool.connect(owner).setDexRouter(newRouter))
         .to.emit(deadpool, "DexRouterUpdated")
         .withArgs(dexRouter.address, newRouter);
@@ -147,6 +214,7 @@ describe("Deadpool", function () {
     });
 
     it("Should not allow non-owner to update DEX router", async function () {
+<<<<<<< HEAD
       await expect(deadpool.connect(user1).setDexRouter(user3.address)).to.be.revertedWith(
         "Ownable: caller is not the owner",
       );
@@ -162,10 +230,31 @@ describe("Deadpool", function () {
       await expect(deadpool.connect(owner).setDexRouter(ethers.ZeroAddress)).to.be.revertedWith(
         "Invalid router address",
       );
+=======
+      await expect(
+        deadpool.connect(user1).setDexRouter(user3.address)
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it("Should revert with invalid treasury address", async function () {
+      await expect(
+        deadpool.connect(owner).setTreasury(ethers.ZeroAddress)
+      ).to.be.revertedWith("Invalid treasury address");
+    });
+
+    it("Should revert with invalid router address", async function () {
+      await expect(
+        deadpool.connect(owner).setDexRouter(ethers.ZeroAddress)
+      ).to.be.revertedWith("Invalid router address");
+>>>>>>> main
     });
 
     it("Should allow owner to update platform fee", async function () {
       const newFeeBps = 500; // 5%
+<<<<<<< HEAD
+=======
+      
+>>>>>>> main
       await expect(deadpool.connect(owner).setPlatformFee(newFeeBps))
         .to.emit(deadpool, "PlatformFeeUpdated")
         .withArgs(DEFAULT_PLATFORM_FEE_BPS, newFeeBps);
@@ -174,12 +263,22 @@ describe("Deadpool", function () {
     });
 
     it("Should not allow non-owner to update platform fee", async function () {
+<<<<<<< HEAD
       await expect(deadpool.connect(user1).setPlatformFee(500)).to.be.revertedWith("Ownable: caller is not the owner");
+=======
+      await expect(
+        deadpool.connect(user1).setPlatformFee(500)
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+>>>>>>> main
     });
 
     it("Should revert with excessive platform fee", async function () {
       await expect(
+<<<<<<< HEAD
         deadpool.connect(owner).setPlatformFee(1001), // 10.01%
+=======
+        deadpool.connect(owner).setPlatformFee(1001) // 10.01%
+>>>>>>> main
       ).to.be.revertedWith("Platform fee too high");
     });
   });
@@ -195,11 +294,20 @@ describe("Deadpool", function () {
 
     it("Should return correct pool information", async function () {
       const pool = await deadpool.getPool(poolId);
+<<<<<<< HEAD
       expect(pool.creator).to.equal(user1.address);
       expect(pool.tokenAddress).to.equal(user2.address);
       expect(pool.totalDeposited).to.equal(0);
       void expect(pool.finalized).to.be.false;
       void expect(pool.cancelled).to.be.false;
+=======
+      
+      expect(pool.creator).to.equal(user1.address);
+      expect(pool.tokenAddress).to.equal(user2.address);
+      expect(pool.totalDeposited).to.equal(0);
+      expect(pool.finalized).to.be.false;
+      expect(pool.cancelled).to.be.false;
+>>>>>>> main
     });
 
     it("Should return empty user deposit initially", async function () {
@@ -226,18 +334,35 @@ describe("Deadpool", function () {
 
   describe("Edge Cases", function () {
     it("Should revert with invalid pool ID", async function () {
+<<<<<<< HEAD
       await expect(deadpool.getPool(999)).to.be.revertedWith("Invalid pool ID");
+=======
+      await expect(
+        deadpool.getPool(999)
+      ).to.be.revertedWith("Invalid pool ID");
+>>>>>>> main
     });
 
     it("Should handle contract receiving ETH", async function () {
       const initialBalance = await ethers.provider.getBalance(await deadpool.getAddress());
+<<<<<<< HEAD
       await owner.sendTransaction({
         to: await deadpool.getAddress(),
         value: ethers.parseEther("1.0"),
+=======
+      
+      await owner.sendTransaction({
+        to: await deadpool.getAddress(),
+        value: ethers.parseEther("1.0")
+>>>>>>> main
       });
 
       const finalBalance = await ethers.provider.getBalance(await deadpool.getAddress());
       expect(finalBalance).to.equal(initialBalance + ethers.parseEther("1.0"));
     });
   });
+<<<<<<< HEAD
 });
+=======
+});
+>>>>>>> main
