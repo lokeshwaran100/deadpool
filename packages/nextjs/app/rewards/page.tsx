@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAccount } from "wagmi";
 import { CheckCircleIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
 
 // Mock data for demonstration - will be replaced with real contract data
@@ -64,14 +65,33 @@ const RewardsPage = () => {
   const { address: connectedAddress } = useAccount();
   const [activeTab, setActiveTab] = useState<"rewards" | "participations">("rewards");
 
+  // Read user's deposit pools
+  const { data: userDepositPools } = useScaffoldReadContract({
+    contractName: "Deadpool",
+    functionName: "getUserDeposits",
+    args: [connectedAddress],
+  });
+
+  // Contract write function for claiming rewards
+  const { writeContractAsync: claimReward } = useScaffoldWriteContract("Deadpool");
+
   const handleClaimReward = async (poolId: number) => {
     if (!connectedAddress) {
       notification.error("Please connect your wallet first");
       return;
     }
 
-    // For now, just show a notification - will be replaced with actual contract call
-    notification.info(`Claiming reward from pool ${poolId}`);
+    try {
+      await claimReward({
+        functionName: "claimReward",
+        args: [BigInt(poolId)],
+      });
+
+      notification.success("🏆 Reward claimed successfully!");
+    } catch (error: any) {
+      console.error("Error claiming reward:", error);
+      notification.error(error?.message || "Failed to claim reward");
+    }
   };
 
   const formatTimeLeft = (deadline: Date) => {
@@ -99,11 +119,10 @@ const RewardsPage = () => {
     }
   };
 
-  const totalUnclaimedRewards = mockRewards
-    .filter(r => !r.claimed)
-    .reduce((sum, r) => sum + parseFloat(r.monadReward), 0);
-
-  const totalClaimedRewards = mockRewards.filter(r => r.claimed).reduce((sum, r) => sum + parseFloat(r.monadReward), 0);
+  // For now, use mock data since we need actual pool interactions to have rewards
+  // In a real implementation, you'd fetch pool data for userDepositPools and check if user won
+  const totalUnclaimedRewards = 0; // Would calculate from real pool data
+  const totalClaimedRewards = 0; // Would calculate from real pool data
 
   return (
     <div className="flex items-center flex-col grow pt-10">
@@ -133,8 +152,8 @@ const RewardsPage = () => {
                 <div className="text-green-100">Total Claimed</div>
               </div>
               <div className="bg-gradient-to-r from-blue-400 to-blue-600 rounded-lg shadow p-6 text-center text-white">
-                <div className="text-2xl font-bold">{mockParticipations.length}</div>
-                <div className="text-blue-100">Active Pools</div>
+                <div className="text-2xl font-bold">{userDepositPools?.length || 0}</div>
+                <div className="text-blue-100">Participated Pools</div>
               </div>
             </div>
 
@@ -144,20 +163,20 @@ const RewardsPage = () => {
                 className={`tab ${activeTab === "rewards" ? "tab-active" : ""}`}
                 onClick={() => setActiveTab("rewards")}
               >
-                🏆 My Rewards ({mockRewards.length})
+                🏆 My Rewards (0)
               </button>
               <button
                 className={`tab ${activeTab === "participations" ? "tab-active" : ""}`}
                 onClick={() => setActiveTab("participations")}
               >
-                💀 Active Pools ({mockParticipations.length})
+                💀 My Pools ({userDepositPools?.length || 0})
               </button>
             </div>
 
             {/* Rewards Tab */}
             {activeTab === "rewards" && (
               <div className="space-y-4">
-                {mockRewards.length === 0 ? (
+                {true ? ( // Always show no rewards for now since we need real pool activity
                   <div className="text-center py-12">
                     <span className="text-6xl mb-4 block">😴</span>
                     <h3 className="text-xl font-semibold mb-2">No rewards yet</h3>
@@ -235,7 +254,7 @@ const RewardsPage = () => {
             {/* Participations Tab */}
             {activeTab === "participations" && (
               <div className="space-y-4">
-                {mockParticipations.length === 0 ? (
+                {!userDepositPools || userDepositPools.length === 0 ? (
                   <div className="text-center py-12">
                     <span className="text-6xl mb-4 block">💤</span>
                     <h3 className="text-xl font-semibold mb-2">No active participations</h3>

@@ -1,67 +1,59 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { ClockIcon, CurrencyDollarIcon, UsersIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
+import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { notification } from "~~/utils/scaffold-eth";
 
-// Mock data for demonstration - will be replaced with real contract data
-const mockPools = [
-  {
-    id: 1,
-    tokenAddress: "0x1234567890123456789012345678901234567890",
-    tokenName: "DeadCoin",
-    tokenSymbol: "DEAD",
-    creator: "0x9876543210987654321098765432109876543210",
-    deadline: new Date(Date.now() + 86400000 * 2), // 2 days from now
-    platformFeeBps: 500,
-    totalDeposited: "1000000",
-    participantCount: 15,
-    finalized: false,
-  },
-  {
-    id: 2,
-    tokenAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-    tokenName: "RuggedMeme",
-    tokenSymbol: "RUG",
-    creator: "0x1111111111111111111111111111111111111111",
-    deadline: new Date(Date.now() + 86400000 * 5), // 5 days from now
-    platformFeeBps: 750,
-    totalDeposited: "500000",
-    participantCount: 8,
-    finalized: false,
-  },
-  {
-    id: 4,
-    tokenAddress: "0xcafebabecafebabecafebabecafebabecafebabe",
-    tokenName: "ExpiredToken",
-    tokenSymbol: "EXP",
-    creator: "0x3333333333333333333333333333333333333333",
-    deadline: new Date(Date.now() - 3600000), // 1 hour ago (expired)
-    platformFeeBps: 500,
-    totalDeposited: "750000",
-    participantCount: 18,
-    finalized: false,
-  },
-  {
-    id: 3,
-    tokenAddress: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-    tokenName: "ZombieCoin",
-    tokenSymbol: "ZOMB",
-    creator: "0x2222222222222222222222222222222222222222",
-    deadline: new Date(Date.now() - 86400000), // Already ended
-    platformFeeBps: 1000,
-    totalDeposited: "2000000",
-    participantCount: 32,
-    finalized: true,
-  },
-];
+// Define pool data type
+type PoolData = {
+  id: number;
+  creator: string;
+  tokenAddress: string;
+  tokenName?: string;
+  tokenSymbol?: string;
+  deadline: Date;
+  totalDeposited: string;
+  totalMonadReceived: string;
+  winners: [string, string, string];
+  finalized: boolean;
+  cancelled: boolean;
+  participantCount: number;
+  platformFeeBps?: number;
+};
 
 const PoolsPage = () => {
   const { address: connectedAddress } = useAccount();
   const [selectedPool, setSelectedPool] = useState<number | null>(null);
   const [depositAmount, setDepositAmount] = useState("");
+  const [pools, setPools] = useState<PoolData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Read the next pool ID to know how many pools exist
+  const { data: nextPoolId } = useScaffoldReadContract({
+    contractName: "Deadpool",
+    functionName: "nextPoolId",
+  });
+
+  // Contract write functions
+  const { writeContractAsync: depositToPoolContract } = useScaffoldWriteContract("Deadpool");
+  const { writeContractAsync: finalizePoolContract } = useScaffoldWriteContract("Deadpool");
+
+  // For now, let's use some sample data since we need pools to exist first
+  // In a real app, you'd loop through all pool IDs and fetch their data
+  useEffect(() => {
+    if (nextPoolId) {
+      // For demonstration, create some sample pools if none exist
+      const samplePools: PoolData[] = [];
+
+      // If we have pool data, we'd fetch it here
+      // For now, just show empty state or sample data
+      setPools(samplePools);
+      setIsLoading(false);
+    }
+  }, [nextPoolId]);
 
   const handleDeposit = async (poolId: number) => {
     if (!connectedAddress) {
@@ -74,10 +66,23 @@ const PoolsPage = () => {
       return;
     }
 
-    // For now, just show a notification - will be replaced with actual contract call
-    notification.info(`Depositing ${depositAmount} tokens to pool ${poolId}`);
-    setSelectedPool(null);
-    setDepositAmount("");
+    try {
+      // Note: This requires token approval first
+      await depositToPoolContract({
+        functionName: "depositToPool",
+        args: [BigInt(poolId), BigInt(depositAmount)],
+      });
+
+      notification.success("🪦 Tokens deposited successfully!");
+      setSelectedPool(null);
+      setDepositAmount("");
+
+      // Reload pools to get updated data
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Error depositing:", error);
+      notification.error(error?.message || "Failed to deposit tokens");
+    }
   };
 
   const handleFinalizePool = async (poolId: number) => {
@@ -86,8 +91,20 @@ const PoolsPage = () => {
       return;
     }
 
-    // For now, just show a notification - will be replaced with actual contract call
-    notification.info(`Finalizing pool ${poolId} - swapping tokens and selecting winners!`);
+    try {
+      await finalizePoolContract({
+        functionName: "finalizePool",
+        args: [BigInt(poolId)],
+      });
+
+      notification.success("🏆 Pool finalized! Winners have been selected!");
+
+      // Reload pools to get updated data
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Error finalizing pool:", error);
+      notification.error(error?.message || "Failed to finalize pool");
+    }
   };
 
   const isPoolExpired = (deadline: Date) => {
@@ -124,112 +141,120 @@ const PoolsPage = () => {
         {/* Stats Bar */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{mockPools.filter(p => !p.finalized).length}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {isLoading ? "..." : pools.filter(p => !p.finalized && !p.cancelled).length}
+            </div>
             <div className="text-gray-600">Active Pools</div>
           </div>
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <div className="text-2xl font-bold text-green-600">
-              {mockPools.reduce((sum, p) => sum + p.participantCount, 0)}
+              {isLoading ? "..." : pools.reduce((sum, p) => sum + p.participantCount, 0)}
             </div>
             <div className="text-gray-600">Total Participants</div>
           </div>
           <div className="bg-white rounded-lg shadow p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600">{mockPools.filter(p => p.finalized).length}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {isLoading ? "..." : pools.filter(p => p.finalized).length}
+            </div>
             <div className="text-gray-600">Completed Pools</div>
           </div>
         </div>
 
         {/* Pool List */}
-        <div className="space-y-4">
-          {mockPools.map(pool => (
-            <div
-              key={pool.id}
-              className={`bg-white rounded-2xl shadow-lg p-6 border-2 ${
-                pool.finalized ? "border-gray-300 opacity-75" : "border-green-200 hover:shadow-xl transition-shadow"
-              }`}
-            >
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                {/* Pool Info */}
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-bold">
-                      {pool.tokenName} ({pool.tokenSymbol})
-                    </h3>
-                    {pool.finalized && (
-                      <span className="bg-gray-500 text-white px-2 py-1 rounded-full text-xs">Finished</span>
-                    )}
-                    {!pool.finalized && isPoolExpired(pool.deadline) && (
-                      <span className="bg-red-500 text-white px-2 py-1 rounded-full text-xs animate-pulse">
-                        Ready to Finalize
-                      </span>
-                    )}
-                    {!pool.finalized && !isPoolExpired(pool.deadline) && (
-                      <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs">Active</span>
-                    )}
+        {isLoading ? (
+          <div className="text-center py-12">
+            <span className="loading loading-spinner loading-lg"></span>
+            <p className="mt-4 text-gray-600">Loading pools...</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {pools.map(pool => (
+              <div
+                key={pool.id}
+                className={`bg-white rounded-2xl shadow-lg p-6 border-2 ${
+                  pool.finalized ? "border-gray-300 opacity-75" : "border-green-200 hover:shadow-xl transition-shadow"
+                }`}
+              >
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  {/* Pool Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-bold">Pool #{pool.id}</h3>
+                      {pool.finalized && (
+                        <span className="bg-gray-500 text-white px-2 py-1 rounded-full text-xs">Finished</span>
+                      )}
+                      {!pool.finalized && isPoolExpired(pool.deadline) && (
+                        <span className="bg-red-500 text-white px-2 py-1 rounded-full text-xs animate-pulse">
+                          Ready to Finalize
+                        </span>
+                      )}
+                      {!pool.finalized && !isPoolExpired(pool.deadline) && (
+                        <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs">Active</span>
+                      )}
+                    </div>
+
+                    <div className="text-sm text-gray-600 mb-3">
+                      <div className="flex items-center gap-1 mb-1">
+                        <span>Token:</span>
+                        <Address address={pool.tokenAddress as any} size="sm" />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span>Creator:</span>
+                        <Address address={pool.creator as any} size="sm" />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <ClockIcon className="h-4 w-4 text-gray-500" />
+                        <span>{formatTimeLeft(pool.deadline)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CurrencyDollarIcon className="h-4 w-4 text-gray-500" />
+                        <span>{formatNumber(pool.totalDeposited)} tokens</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <UsersIcon className="h-4 w-4 text-gray-500" />
+                        <span>{pool.participantCount} participants</span>
+                      </div>
+                      <div className="text-gray-500">Managed by contract</div>
+                    </div>
                   </div>
 
-                  <div className="text-sm text-gray-600 mb-3">
-                    <div className="flex items-center gap-1 mb-1">
-                      <span>Token:</span>
-                      <Address address={pool.tokenAddress as any} size="sm" />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span>Creator:</span>
-                      <Address address={pool.creator as any} size="sm" />
-                    </div>
+                  {/* Action Button */}
+                  <div className="lg:min-w-[150px]">
+                    {pool.finalized ? (
+                      <button className="btn btn-disabled w-full" disabled>
+                        <span className="deadpool-emoji">⚰️</span> Pool Ended
+                      </button>
+                    ) : isPoolExpired(pool.deadline) ? (
+                      <button
+                        onClick={() => handleFinalizePool(pool.id)}
+                        className="btn text-white w-full blood-gradient hover:scale-105 transition-transform animate-pulse"
+                        disabled={!connectedAddress}
+                      >
+                        <span className="deadpool-emoji">⚡</span> Finalize Pool
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedPool(pool.id)}
+                        className="btn text-white w-full zombie-gradient hover:scale-105 transition-transform"
+                        disabled={!connectedAddress}
+                      >
+                        <span className="deadpool-emoji">💀</span> Deposit Tokens
+                      </button>
+                    )}
                   </div>
-
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="flex items-center gap-1">
-                      <ClockIcon className="h-4 w-4 text-gray-500" />
-                      <span>{formatTimeLeft(pool.deadline)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <CurrencyDollarIcon className="h-4 w-4 text-gray-500" />
-                      <span>{formatNumber(pool.totalDeposited)} tokens</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <UsersIcon className="h-4 w-4 text-gray-500" />
-                      <span>{pool.participantCount} participants</span>
-                    </div>
-                    <div className="text-gray-500">Fee: {pool.platformFeeBps / 100}%</div>
-                  </div>
-                </div>
-
-                {/* Action Button */}
-                <div className="lg:min-w-[150px]">
-                  {pool.finalized ? (
-                    <button className="btn btn-disabled w-full" disabled>
-                      <span className="deadpool-emoji">⚰️</span> Pool Ended
-                    </button>
-                  ) : isPoolExpired(pool.deadline) ? (
-                    <button
-                      onClick={() => handleFinalizePool(pool.id)}
-                      className="btn text-white w-full blood-gradient hover:scale-105 transition-transform animate-pulse"
-                      disabled={!connectedAddress}
-                    >
-                      <span className="deadpool-emoji">⚡</span> Finalize Pool
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setSelectedPool(pool.id)}
-                      className="btn text-white w-full zombie-gradient hover:scale-105 transition-transform"
-                      disabled={!connectedAddress}
-                    >
-                      <span className="deadpool-emoji">💀</span> Deposit Tokens
-                    </button>
-                  )}
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {mockPools.length === 0 && (
-          <div className="text-center py-12">
-            <span className="text-6xl mb-4 block">😔</span>
-            <h3 className="text-xl font-semibold mb-2">No pools found</h3>
-            <p className="text-gray-600">Be the first to create a deadpool!</p>
+            ))}
+            {pools.length === 0 && (
+              <div className="text-center py-12">
+                <span className="text-6xl mb-4 block">😔</span>
+                <h3 className="text-xl font-semibold mb-2">No pools found</h3>
+                <p className="text-gray-600">Be the first to create a deadpool!</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -242,10 +267,10 @@ const PoolsPage = () => {
 
             <div className="mb-4">
               <p className="text-sm text-gray-600 mb-2">
-                Pool: {mockPools.find(p => p.id === selectedPool)?.tokenName}
+                Pool: {pools.find(p => p.id === selectedPool)?.tokenAddress || "Unknown Token"}
               </p>
               <p className="text-sm text-gray-600">
-                Current participants: {mockPools.find(p => p.id === selectedPool)?.participantCount}
+                Current participants: {pools.find(p => p.id === selectedPool)?.participantCount || 0}
               </p>
             </div>
 
