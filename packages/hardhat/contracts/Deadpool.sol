@@ -27,13 +27,13 @@ contract Deadpool is Ownable, ReentrancyGuard {
     address public treasury;
     address public dexRouter;
     uint256 public nextPoolId = 1;
+    uint16 public platformFeeBps = 1000; // Default 10% platform fee
 
     // Pool structure
     struct Pool {
         address creator;
         address tokenAddress;
         uint256 deadline;
-        uint16 platformFeeBps;
         uint256 totalDeposited;
         uint256 totalMonadReceived;
         address[3] winners;
@@ -54,8 +54,7 @@ contract Deadpool is Ownable, ReentrancyGuard {
         uint256 indexed poolId,
         address indexed creator,
         address indexed tokenAddress,
-        uint256 deadline,
-        uint16 platformFeeBps
+        uint256 deadline
     );
     
     event Deposited(
@@ -98,6 +97,11 @@ contract Deadpool is Ownable, ReentrancyGuard {
         address indexed oldRouter,
         address indexed newRouter
     );
+    
+    event PlatformFeeUpdated(
+        uint16 oldFeeBps,
+        uint16 newFeeBps
+    );
 
     // Modifiers
     modifier validPool(uint256 poolId) {
@@ -134,16 +138,13 @@ contract Deadpool is Ownable, ReentrancyGuard {
      * @dev Create a new deadpool for a specific dead token
      * @param tokenAddress Address of the dead token
      * @param duration Duration of the pool in seconds
-     * @param platformFeeBps Platform fee in basis points (0-1000, max 10%)
      */
     function createDeadpool(
         address tokenAddress,
-        uint256 duration,
-        uint16 platformFeeBps
+        uint256 duration
     ) external returns (uint256) {
         require(tokenAddress != address(0), "Invalid token address");
         require(duration >= MIN_POOL_DURATION && duration <= MAX_POOL_DURATION, "Invalid duration");
-        require(platformFeeBps <= MAX_PLATFORM_FEE_BPS, "Platform fee too high");
 
         uint256 poolId = nextPoolId++;
         uint256 deadline = block.timestamp + duration;
@@ -152,7 +153,6 @@ contract Deadpool is Ownable, ReentrancyGuard {
         newPool.creator = msg.sender;
         newPool.tokenAddress = tokenAddress;
         newPool.deadline = deadline;
-        newPool.platformFeeBps = platformFeeBps;
         newPool.totalDeposited = 0;
         newPool.totalMonadReceived = 0;
         newPool.finalized = false;
@@ -160,7 +160,7 @@ contract Deadpool is Ownable, ReentrancyGuard {
 
         userPools[msg.sender].push(poolId);
 
-        emit DeadpoolCreated(poolId, msg.sender, tokenAddress, deadline, platformFeeBps);
+        emit DeadpoolCreated(poolId, msg.sender, tokenAddress, deadline);
 
         return poolId;
     }
@@ -216,7 +216,7 @@ contract Deadpool is Ownable, ReentrancyGuard {
         require(monadReceived > 0, "Swap failed or no Monad received");
 
         // Calculate platform fee
-        uint256 platformFee = (monadReceived * pool.platformFeeBps) / BPS_DENOMINATOR;
+        uint256 platformFee = (monadReceived * platformFeeBps) / BPS_DENOMINATOR;
         uint256 rewardPool = monadReceived - platformFee;
 
         // Transfer platform fee to treasury
@@ -337,12 +337,23 @@ contract Deadpool is Ownable, ReentrancyGuard {
         emit DexRouterUpdated(oldRouter, newRouter);
     }
 
+    /**
+     * @dev Update platform fee (owner only)
+     * @param newFeeBps New platform fee in basis points (0-1000, max 10%)
+     */
+    function setPlatformFee(uint16 newFeeBps) external onlyOwner {
+        require(newFeeBps <= MAX_PLATFORM_FEE_BPS, "Platform fee too high");
+        uint16 oldFeeBps = platformFeeBps;
+        platformFeeBps = newFeeBps;
+
+        emit PlatformFeeUpdated(oldFeeBps, newFeeBps);
+    }
+
     // View functions
     function getPool(uint256 poolId) external view returns (
         address creator,
         address tokenAddress,
         uint256 deadline,
-        uint16 platformFeeBps,
         uint256 totalDeposited,
         uint256 totalMonadReceived,
         address[3] memory winners,
@@ -354,7 +365,6 @@ contract Deadpool is Ownable, ReentrancyGuard {
             pool.creator,
             pool.tokenAddress,
             pool.deadline,
-            pool.platformFeeBps,
             pool.totalDeposited,
             pool.totalMonadReceived,
             pool.winners,

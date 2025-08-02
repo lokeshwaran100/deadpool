@@ -13,8 +13,8 @@ describe("Deadpool", function () {
   let user3: HardhatEthersSigner;
   let dexRouter: HardhatEthersSigner;
 
-  const PLATFORM_FEE_BPS = 500; // 5%
   const POOL_DURATION = 3600; // 1 hour
+  const DEFAULT_PLATFORM_FEE_BPS = 1000; // 10% (default)
 
   before(async () => {
     [owner, treasury, user1, user2, user3, dexRouter] = await ethers.getSigners();
@@ -40,20 +40,23 @@ describe("Deadpool", function () {
     it("Should initialize nextPoolId to 1", async function () {
       expect(await deadpool.nextPoolId()).to.equal(1);
     });
+
+    it("Should set default platform fee to 10%", async function () {
+      expect(await deadpool.platformFeeBps()).to.equal(DEFAULT_PLATFORM_FEE_BPS);
+    });
   });
 
   describe("Pool Creation", function () {
     it("Should create a new deadpool", async function () {
       const tokenAddress = user1.address; // Using user address as mock token
       
-      await expect(deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION, PLATFORM_FEE_BPS))
+      await expect(deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION))
         .to.emit(deadpool, "DeadpoolCreated")
-        .withArgs(1, user1.address, tokenAddress, await time.latest() + POOL_DURATION, PLATFORM_FEE_BPS);
+        .withArgs(1, user1.address, tokenAddress, await time.latest() + POOL_DURATION);
 
       const pool = await deadpool.getPool(1);
       expect(pool.creator).to.equal(user1.address);
       expect(pool.tokenAddress).to.equal(tokenAddress);
-      expect(pool.platformFeeBps).to.equal(PLATFORM_FEE_BPS);
       expect(pool.finalized).to.be.false;
       expect(pool.cancelled).to.be.false;
     });
@@ -64,7 +67,7 @@ describe("Deadpool", function () {
 
     it("Should revert with invalid token address", async function () {
       await expect(
-        deadpool.connect(user1).createDeadpool(ethers.ZeroAddress, POOL_DURATION, PLATFORM_FEE_BPS)
+        deadpool.connect(user1).createDeadpool(ethers.ZeroAddress, POOL_DURATION)
       ).to.be.revertedWith("Invalid token address");
     });
 
@@ -73,21 +76,13 @@ describe("Deadpool", function () {
       
       // Too short duration
       await expect(
-        deadpool.connect(user1).createDeadpool(tokenAddress, 30 * 60, PLATFORM_FEE_BPS) // 30 minutes
+        deadpool.connect(user1).createDeadpool(tokenAddress, 30 * 60) // 30 minutes
       ).to.be.revertedWith("Invalid duration");
 
       // Too long duration
       await expect(
-        deadpool.connect(user1).createDeadpool(tokenAddress, 31 * 24 * 60 * 60, PLATFORM_FEE_BPS) // 31 days
+        deadpool.connect(user1).createDeadpool(tokenAddress, 31 * 24 * 60 * 60) // 31 days
       ).to.be.revertedWith("Invalid duration");
-    });
-
-    it("Should revert with excessive platform fee", async function () {
-      const tokenAddress = user2.address;
-      
-      await expect(
-        deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION, 1001) // 10.01%
-      ).to.be.revertedWith("Platform fee too high");
     });
   });
 
@@ -96,7 +91,7 @@ describe("Deadpool", function () {
 
     beforeEach(async function () {
       const tokenAddress = user2.address;
-      await deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION, PLATFORM_FEE_BPS);
+      await deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION);
       poolId = Number(await deadpool.nextPoolId()) - 1;
     });
 
@@ -175,6 +170,28 @@ describe("Deadpool", function () {
         deadpool.connect(owner).setDexRouter(ethers.ZeroAddress)
       ).to.be.revertedWith("Invalid router address");
     });
+
+    it("Should allow owner to update platform fee", async function () {
+      const newFeeBps = 500; // 5%
+      
+      await expect(deadpool.connect(owner).setPlatformFee(newFeeBps))
+        .to.emit(deadpool, "PlatformFeeUpdated")
+        .withArgs(DEFAULT_PLATFORM_FEE_BPS, newFeeBps);
+
+      expect(await deadpool.platformFeeBps()).to.equal(newFeeBps);
+    });
+
+    it("Should not allow non-owner to update platform fee", async function () {
+      await expect(
+        deadpool.connect(user1).setPlatformFee(500)
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it("Should revert with excessive platform fee", async function () {
+      await expect(
+        deadpool.connect(owner).setPlatformFee(1001) // 10.01%
+      ).to.be.revertedWith("Platform fee too high");
+    });
   });
 
   describe("View Functions", function () {
@@ -182,7 +199,7 @@ describe("Deadpool", function () {
 
     beforeEach(async function () {
       const tokenAddress = user2.address;
-      await deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION, PLATFORM_FEE_BPS);
+      await deadpool.connect(user1).createDeadpool(tokenAddress, POOL_DURATION);
       poolId = Number(await deadpool.nextPoolId()) - 1;
     });
 
@@ -191,7 +208,6 @@ describe("Deadpool", function () {
       
       expect(pool.creator).to.equal(user1.address);
       expect(pool.tokenAddress).to.equal(user2.address);
-      expect(pool.platformFeeBps).to.equal(PLATFORM_FEE_BPS);
       expect(pool.totalDeposited).to.equal(0);
       expect(pool.finalized).to.be.false;
       expect(pool.cancelled).to.be.false;
