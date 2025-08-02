@@ -5,8 +5,8 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
-  title: "Scaffold-ETH 2 App",
-  description: "Built with 🏗 Scaffold-ETH 2",
+  title: "Deadpool - Dead Token Lottery",
+  description: "Turn your dead tokens into treasure! Join the Web3 lottery on Monad testnet.",
 });
 
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {

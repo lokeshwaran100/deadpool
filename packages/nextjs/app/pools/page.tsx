@@ -1,0 +1,294 @@
+"use client";
+
+import { useState } from "react";
+import { useAccount } from "wagmi";
+import { ClockIcon, CurrencyDollarIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { Address } from "~~/components/scaffold-eth";
+import { notification } from "~~/utils/scaffold-eth";
+
+// Mock data for demonstration - will be replaced with real contract data
+const mockPools = [
+  {
+    id: 1,
+    tokenAddress: "0x1234567890123456789012345678901234567890",
+    tokenName: "DeadCoin",
+    tokenSymbol: "DEAD",
+    creator: "0x9876543210987654321098765432109876543210",
+    deadline: new Date(Date.now() + 86400000 * 2), // 2 days from now
+    platformFeeBps: 500,
+    totalDeposited: "1000000",
+    participantCount: 15,
+    finalized: false,
+  },
+  {
+    id: 2,
+    tokenAddress: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+    tokenName: "RuggedMeme",
+    tokenSymbol: "RUG",
+    creator: "0x1111111111111111111111111111111111111111",
+    deadline: new Date(Date.now() + 86400000 * 5), // 5 days from now
+    platformFeeBps: 750,
+    totalDeposited: "500000",
+    participantCount: 8,
+    finalized: false,
+  },
+  {
+    id: 4,
+    tokenAddress: "0xcafebabecafebabecafebabecafebabecafebabe",
+    tokenName: "ExpiredToken",
+    tokenSymbol: "EXP",
+    creator: "0x3333333333333333333333333333333333333333",
+    deadline: new Date(Date.now() - 3600000), // 1 hour ago (expired)
+    platformFeeBps: 500,
+    totalDeposited: "750000",
+    participantCount: 18,
+    finalized: false,
+  },
+  {
+    id: 3,
+    tokenAddress: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+    tokenName: "ZombieCoin",
+    tokenSymbol: "ZOMB",
+    creator: "0x2222222222222222222222222222222222222222",
+    deadline: new Date(Date.now() - 86400000), // Already ended
+    platformFeeBps: 1000,
+    totalDeposited: "2000000",
+    participantCount: 32,
+    finalized: true,
+  },
+];
+
+const PoolsPage = () => {
+  const { address: connectedAddress } = useAccount();
+  const [selectedPool, setSelectedPool] = useState<number | null>(null);
+  const [depositAmount, setDepositAmount] = useState("");
+
+  const handleDeposit = async (poolId: number) => {
+    if (!connectedAddress) {
+      notification.error("Please connect your wallet first");
+      return;
+    }
+
+    if (!depositAmount) {
+      notification.error("Please enter a deposit amount");
+      return;
+    }
+
+    // For now, just show a notification - will be replaced with actual contract call
+    notification.info(`Depositing ${depositAmount} tokens to pool ${poolId}`);
+    setSelectedPool(null);
+    setDepositAmount("");
+  };
+
+  const handleFinalizePool = async (poolId: number) => {
+    if (!connectedAddress) {
+      notification.error("Please connect your wallet first");
+      return;
+    }
+
+    // For now, just show a notification - will be replaced with actual contract call
+    notification.info(`Finalizing pool ${poolId} - swapping tokens and selecting winners!`);
+  };
+
+  const isPoolExpired = (deadline: Date) => {
+    return new Date() > deadline;
+  };
+
+  const formatTimeLeft = (deadline: Date) => {
+    const now = new Date();
+    const timeLeft = deadline.getTime() - now.getTime();
+
+    if (timeLeft <= 0) return "Ended";
+
+    const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+    return `${days}d ${hours}h left`;
+  };
+
+  const formatNumber = (num: string) => {
+    return parseInt(num).toLocaleString();
+  };
+
+  return (
+    <div className="flex items-center flex-col grow pt-10">
+      <div className="px-5 w-full max-w-6xl">
+        <div className="text-center mb-8">
+          <span className="text-4xl mb-4 block deadpool-emoji">💰</span>
+          <h1 className="text-4xl font-bold mb-4 deadpool-title">Browse Deadpools</h1>
+          <p className="text-lg text-gray-600">
+            Find active pools and deposit your matching dead tokens for a chance to win!
+          </p>
+        </div>
+
+        {/* Stats Bar */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <div className="text-2xl font-bold text-blue-600">{mockPools.filter(p => !p.finalized).length}</div>
+            <div className="text-gray-600">Active Pools</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <div className="text-2xl font-bold text-green-600">
+              {mockPools.reduce((sum, p) => sum + p.participantCount, 0)}
+            </div>
+            <div className="text-gray-600">Total Participants</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <div className="text-2xl font-bold text-purple-600">{mockPools.filter(p => p.finalized).length}</div>
+            <div className="text-gray-600">Completed Pools</div>
+          </div>
+        </div>
+
+        {/* Pool List */}
+        <div className="space-y-4">
+          {mockPools.map(pool => (
+            <div
+              key={pool.id}
+              className={`bg-white rounded-2xl shadow-lg p-6 border-2 ${
+                pool.finalized ? "border-gray-300 opacity-75" : "border-green-200 hover:shadow-xl transition-shadow"
+              }`}
+            >
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                {/* Pool Info */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-xl font-bold">
+                      {pool.tokenName} ({pool.tokenSymbol})
+                    </h3>
+                    {pool.finalized && (
+                      <span className="bg-gray-500 text-white px-2 py-1 rounded-full text-xs">Finished</span>
+                    )}
+                    {!pool.finalized && isPoolExpired(pool.deadline) && (
+                      <span className="bg-red-500 text-white px-2 py-1 rounded-full text-xs animate-pulse">
+                        Ready to Finalize
+                      </span>
+                    )}
+                    {!pool.finalized && !isPoolExpired(pool.deadline) && (
+                      <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs">Active</span>
+                    )}
+                  </div>
+
+                  <div className="text-sm text-gray-600 mb-3">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span>Token:</span>
+                      <Address address={pool.tokenAddress as any} size="sm" />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span>Creator:</span>
+                      <Address address={pool.creator as any} size="sm" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <ClockIcon className="h-4 w-4 text-gray-500" />
+                      <span>{formatTimeLeft(pool.deadline)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <CurrencyDollarIcon className="h-4 w-4 text-gray-500" />
+                      <span>{formatNumber(pool.totalDeposited)} tokens</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <UsersIcon className="h-4 w-4 text-gray-500" />
+                      <span>{pool.participantCount} participants</span>
+                    </div>
+                    <div className="text-gray-500">Fee: {pool.platformFeeBps / 100}%</div>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <div className="lg:min-w-[150px]">
+                  {pool.finalized ? (
+                    <button className="btn btn-disabled w-full" disabled>
+                      <span className="deadpool-emoji">⚰️</span> Pool Ended
+                    </button>
+                  ) : isPoolExpired(pool.deadline) ? (
+                    <button
+                      onClick={() => handleFinalizePool(pool.id)}
+                      className="btn text-white w-full blood-gradient hover:scale-105 transition-transform animate-pulse"
+                      disabled={!connectedAddress}
+                    >
+                      <span className="deadpool-emoji">⚡</span> Finalize Pool
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setSelectedPool(pool.id)}
+                      className="btn text-white w-full zombie-gradient hover:scale-105 transition-transform"
+                      disabled={!connectedAddress}
+                    >
+                      <span className="deadpool-emoji">💀</span> Deposit Tokens
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {mockPools.length === 0 && (
+          <div className="text-center py-12">
+            <span className="text-6xl mb-4 block">😔</span>
+            <h3 className="text-xl font-semibold mb-2">No pools found</h3>
+            <p className="text-gray-600">Be the first to create a deadpool!</p>
+          </div>
+        )}
+      </div>
+
+      {/* Deposit Modal */}
+      {selectedPool && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4">Deposit Tokens</h3>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Pool: {mockPools.find(p => p.id === selectedPool)?.tokenName}
+              </p>
+              <p className="text-sm text-gray-600">
+                Current participants: {mockPools.find(p => p.id === selectedPool)?.participantCount}
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Amount to Deposit</label>
+              <input
+                type="number"
+                value={depositAmount}
+                onChange={e => setDepositAmount(e.target.value)}
+                className="input input-bordered w-full"
+                placeholder="Enter amount"
+              />
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-yellow-800">
+                ⚠️ Make sure you approve the contract to spend your tokens first!
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setSelectedPool(null);
+                  setDepositAmount("");
+                }}
+                className="btn btn-outline flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeposit(selectedPool)}
+                className="btn btn-primary flex-1"
+                disabled={!depositAmount}
+              >
+                Deposit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PoolsPage;
