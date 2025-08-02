@@ -1,9 +1,3 @@
-<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" class="logo" width="120"/>
-
-# Summarize the project and solidity contract description in markdown format
-
-Certainly! Here is a concise summary of the Deadpool project and its core Solidity contract structure, presented in Markdown format:
-
 # 🪦 Deadpool: Web3 Dead Token Lottery on Monad
 
 ## Project Overview
