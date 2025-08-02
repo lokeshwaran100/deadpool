@@ -25,7 +25,7 @@ const deployDeadpool: DeployFunction = async function (hre: HardhatRuntimeEnviro
   // For local development, use deployer address as treasury
   // For production, you should use actual treasury and DEX router addresses
   const treasury = deployer;
-  const dexRouter = deployer; // This should be replaced with actual DEX router address on live networks
+  const dexRouter = "0x3aE6D8A282D67893e17AA70ebFFb33EE5aa65893"; // This should be replaced with actual DEX router address on live networks
 
   await deploy("Deadpool", {
     from: deployer,
