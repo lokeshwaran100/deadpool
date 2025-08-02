@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   31337: {
     Deadpool: {
-      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      address: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
       abi: [
         {
           inputs: [
@@ -117,12 +117,6 @@ const deployedContracts = {
               name: "deadline",
               type: "uint256",
             },
-            {
-              indexed: false,
-              internalType: "uint16",
-              name: "platformFeeBps",
-              type: "uint16",
-            },
           ],
           name: "DeadpoolCreated",
           type: "event",
@@ -219,6 +213,25 @@ const deployedContracts = {
             },
           ],
           name: "OwnershipTransferred",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: false,
+              internalType: "uint16",
+              name: "oldFeeBps",
+              type: "uint16",
+            },
+            {
+              indexed: false,
+              internalType: "uint16",
+              name: "newFeeBps",
+              type: "uint16",
+            },
+          ],
+          name: "PlatformFeeUpdated",
           type: "event",
         },
         {
@@ -409,11 +422,6 @@ const deployedContracts = {
               name: "duration",
               type: "uint256",
             },
-            {
-              internalType: "uint16",
-              name: "platformFeeBps",
-              type: "uint16",
-            },
           ],
           name: "createDeadpool",
           outputs: [
@@ -507,11 +515,6 @@ const deployedContracts = {
               internalType: "uint256",
               name: "deadline",
               type: "uint256",
-            },
-            {
-              internalType: "uint16",
-              name: "platformFeeBps",
-              type: "uint16",
             },
             {
               internalType: "uint256",
@@ -674,6 +677,19 @@ const deployedContracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "platformFeeBps",
+          outputs: [
+            {
+              internalType: "uint16",
+              name: "",
+              type: "uint16",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "uint256",
@@ -697,11 +713,6 @@ const deployedContracts = {
               internalType: "uint256",
               name: "deadline",
               type: "uint256",
-            },
-            {
-              internalType: "uint16",
-              name: "platformFeeBps",
-              type: "uint16",
             },
             {
               internalType: "uint256",
@@ -743,6 +754,19 @@ const deployedContracts = {
             },
           ],
           name: "setDexRouter",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint16",
+              name: "newFeeBps",
+              type: "uint16",
+            },
+          ],
+          name: "setPlatformFee",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -844,7 +868,7 @@ const deployedContracts = {
         renounceOwnership: "@openzeppelin/contracts/access/Ownable.sol",
         transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
       },
-      deployedOnBlock: 2,
+      deployedOnBlock: 4,
     },
   },
 } as const;
